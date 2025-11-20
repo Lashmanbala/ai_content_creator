@@ -18,7 +18,7 @@ client = OpenAI()
 # print(response.output_text)
 
 API_KEY_ENV_VAR = "OPENAI_API_KEY"  
-DEFAULT_CITY = "Kumasi"
+# DEFAULT_CITY = "Kumasi"
 MODEL = "gpt-4.1-nano"
 OUTPUT_DIR = "."
 MAX_TOKENS = 2000
@@ -34,18 +34,21 @@ MAX_TOKENS = 2000
             # )
 
 
-city = DEFAULT_CITY
+city_name = "Bangalore"
+country_name = "India"
 # prompt = build_prompt(city)
-filename_safe = city.lower().replace(" ", "_")
+filename_safe = city_name.lower().replace(" ", "_")
 output_path = os.path.join(OUTPUT_DIR, f"{filename_safe}_seo_page.txt")
 
 # Basic retry/backoff in case of transient failures
 max_retries = 1
 backoff = 2.0
 
+prompt = prompt.format(city_name=city_name, country_name=country_name)
+
 for attempt in range(1, max_retries + 1):
     try:
-        print(f"[Attempt {attempt}] Calling model {MODEL} to generate content for {city}...")
+        print(f"[Attempt {attempt}] Calling model {MODEL} to generate content for {city_name}...")
         response = client.chat.completions.create(
             model=MODEL,
             messages=[
