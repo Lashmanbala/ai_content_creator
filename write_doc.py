@@ -4,90 +4,9 @@ from bs4 import BeautifulSoup
 import re
 from content import html, mdc
 
-'''
-from googleapiclient.discovery import build
-
-def markdown_to_google_docs(service, document_id, markdown_text):
-    lines = markdown_text.split("\n")
-
-    requests = []
-    index = 1  # Google Docs starts at index 1
-
-    def insert(text):
-        nonlocal index
-        requests.append({
-            "insertText": {
-                "location": {"index": index},
-                "text": text
-            }
-        })
-        index += len(text)
-
-    def apply_heading(level, start, end):
-        requests.append({
-            "updateParagraphStyle": {
-                "range": {"startIndex": start, "endIndex": end},
-                "paragraphStyle": {"namedStyleType": f"HEADING_{level}"},
-                "fields": "namedStyleType"
-            }
-        })
-
-    def apply_bullet(start, end):
-        # ✔ Must NOT contain bulletPreset
-        requests.append({
-            "createParagraphBullets": {
-                "range": {"startIndex": start, "endIndex": end}
-            }
-        })
-
-    # --------------- PARSE MARKDOWN -----------------
-
-    for line in lines:
-        stripped = line.strip()
-        start = index
-
-        # ---------- HEADINGS ----------
-        if stripped.startswith("### "):
-            insert(stripped[4:] + "\n")
-            apply_heading(3, start, index)
-
-        elif stripped.startswith("## "):
-            insert(stripped[3:] + "\n")
-            apply_heading(2, start, index)
-
-        elif stripped.startswith("# "):
-            insert(stripped[2:] + "\n")
-            apply_heading(1, start, index)
-
-        # ---------- BULLETS ----------
-        elif stripped.startswith("- ") or stripped.startswith("* "):
-            insert(stripped[2:] + "\n")
-            apply_bullet(start, index)
-
-        # ---------- NORMAL TEXT ----------
-        else:
-            insert(line + "\n")
-
-    # --------------- SEND REQUESTS -----------------
-
-    body = {"requests": requests}
-    return service.documents().batchUpdate(
-        documentId=document_id, body=body
-    ).execute()
 
 SERVICE_ACCOUNT_FILE = "doc-reader.json"
 SCOPES = ["https://www.googleapis.com/auth/documents"]
-creds = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
-service = build("docs", "v1", credentials=creds)
-
-markdown_to_google_docs(service, '1J43gRLDYKC8q6EZfQGuOUbarbcDblaF2Jwr-zbpz44M', mdc)
-'''
-
-
-# ---------- CONFIG ----------
-SERVICE_ACCOUNT_FILE = "doc-reader.json"
-SCOPES = ["https://www.googleapis.com/auth/documents"]
-# DOCUMENT_TITLE = "Converted - SEO Consultant in Bangalore"
 
 
 def auth_docs():
@@ -101,16 +20,15 @@ def clean_text(s):
     return re.sub(r'\s+', ' ', s).strip()
 
 
-def build_requests_from_html(html):
+def build_requests_from_html(html, starting_index=1):
     soup = BeautifulSoup(html, "html.parser")
     body = soup.find("body")
     if body is None:
         body = soup  # fallback
 
     requests = []
-    # We'll simulate the document's character index while building the requests.
-    # New empty doc has index starting at 1.
-    current_index = 1
+    # Simulating the document's character index while building the requests.
+    current_index = starting_index
 
     # helper to insert text at current_index and increment
     def insert_text_and_advance(text):
@@ -126,9 +44,12 @@ def build_requests_from_html(html):
         end = current_index
         return start, end
 
-    # collect style requests as we go (they depend on start/end indices we've just recorded)
+    # collecting style requests as we go (they depend on start/end indices we've just recorded)
     def add_text_style(start, end, style_dict):
         # fields is comma-separated keys of style_dict
+        if start is None or end is None or start == end:
+            return
+        
         fields = ",".join(style_dict.keys())
         requests.append({
             "updateTextStyle": {
@@ -139,6 +60,8 @@ def build_requests_from_html(html):
         })
 
     def add_paragraph_style(start, end, named_style):
+        if start is None or end is None or start == end:
+            return
         requests.append({
             "updateParagraphStyle": {
                 "range": {"startIndex": start, "endIndex": end},
@@ -155,7 +78,7 @@ def build_requests_from_html(html):
                 insert_text_and_advance(text + "\n")
             continue
 
-        name = node.name.lower()
+        name = getattr(node, "name", "").lower()
 
         if name in ("h1", "h2", "h3"):
             text = clean_text(node.get_text())
@@ -163,6 +86,9 @@ def build_requests_from_html(html):
                 continue
             # Insert text + newline
             start, end = insert_text_and_advance(text + "\n")
+
+            add_text_style(start, end, {"bold": True})
+
             # Map to named styles
             if name == "h1":
                 add_paragraph_style(start, end, "HEADING_1")
@@ -177,9 +103,11 @@ def build_requests_from_html(html):
             for child in node.children:
                 if getattr(child, "name", None) == "strong":
                     t = clean_text(child.get_text())
+                    # t = child.get_text()
                     if t:
                         s, e = insert_text_and_advance(t)
                         add_text_style(s, e, {"bold": True})
+
                 elif getattr(child, "name", None) == "a":
                     t = clean_text(child.get_text())
                     href = child.get("href")
@@ -187,6 +115,7 @@ def build_requests_from_html(html):
                         s, e = insert_text_and_advance(t)
                         if href:
                             add_text_style(s, e, {"link": {"url": href}})
+                            # insert_text_and_advance("\u200b")
                 else:
                     # plain text node (including text inside other non-styled tags)
                     plain = ""
