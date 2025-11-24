@@ -87,7 +87,8 @@ def build_requests_from_html(html, starting_index=1):
             # Insert text + newline
             start, end = insert_text_and_advance(text + "\n")
 
-            add_text_style(start, end, {"bold": True})
+            # apply bold ONLY to visible characters
+            add_text_style(start, start + len(text), {"bold": True})
 
             # Map to named styles
             if name == "h1":
