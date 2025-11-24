@@ -169,14 +169,14 @@ def build_requests_from_html(html, starting_index=1):
                 if first_item_index is None:
                     first_item_index = s
                 last_item_index = e
-            # if li_count > 0:
-            #     # create numbered bullets
-            #     requests.append({
-            #         "createParagraphBullets": {
-            #             "range": {"startIndex": first_item_index, "endIndex": last_item_index},
-            #             "bulletPreset": "NUMBERED_DECIMAL"
-            #         }
-            #     })
+            if li_count > 0:
+                # create numbered bullets
+                requests.append({
+                    "createParagraphBullets": {
+                        "range": {"startIndex": first_item_index, "endIndex": last_item_index},
+                        "bulletPreset": "NUMBERED_DECIMAL_ALPHA_ROMAN"
+                    }
+                })
 
         else:
             # fallback: insert the text content and a newline
