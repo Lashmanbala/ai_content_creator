@@ -108,7 +108,7 @@ def build_requests_from_html(html, starting_index=1):
                     if t:
                         s, e = insert_text_and_advance(t)
                         add_text_style(s, e, {"bold": True})
-
+                # handle <a>
                 elif getattr(child, "name", None) == "a":
                     t = clean_text(child.get_text())
                     href = child.get("href")
@@ -116,7 +116,7 @@ def build_requests_from_html(html, starting_index=1):
                         s, e = insert_text_and_advance(t)
                         if href:
                             add_text_style(s, e, {"link": {"url": href}})
-                            # insert_text_and_advance("\u200b")
+                            
                 else:
                     # plain text node (including text inside other non-styled tags)
                     plain = ""
@@ -144,13 +144,15 @@ def build_requests_from_html(html, starting_index=1):
                 if first_item_index is None:
                     first_item_index = s
                 last_item_index = e
-            # if li_count > 0:
-            #     # create bullets for the range
-            #     requests.append({
-            #                 "createParagraphBullets": {
-            #                     "range": {"startIndex": s, "endIndex": e}
-            #                 }
-            #             })
+            
+            if li_count > 0:
+                # create bullets for the range
+                requests.append({
+                    "createParagraphBullets": {
+                        "range": {"startIndex": first_item_index, "endIndex": last_item_index},
+                        "bulletPreset": "BULLET_DISC_CIRCLE_SQUARE"
+                    }
+                })
 
 
         elif name == "ol":
@@ -167,14 +169,14 @@ def build_requests_from_html(html, starting_index=1):
                 if first_item_index is None:
                     first_item_index = s
                 last_item_index = e
-            if li_count > 0:
-                # create numbered bullets
-                requests.append({
-                    "createParagraphBullets": {
-                        "range": {"startIndex": first_item_index, "endIndex": last_item_index},
-                        "bulletPreset": "NUMBERED_DECIMAL"
-                    }
-                })
+            # if li_count > 0:
+            #     # create numbered bullets
+            #     requests.append({
+            #         "createParagraphBullets": {
+            #             "range": {"startIndex": first_item_index, "endIndex": last_item_index},
+            #             "bulletPreset": "NUMBERED_DECIMAL"
+            #         }
+            #     })
 
         else:
             # fallback: insert the text content and a newline
