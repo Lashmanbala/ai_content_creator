@@ -10,18 +10,10 @@ load_dotenv()
 
 client = OpenAI()
 
-# response = client.responses.create(
-#     model="gpt-5-nano",
-#     input="Write a one-sentence bedtime story about a unicorn."
-# )
-
-# print(response.output_text)
-
 API_KEY_ENV_VAR = "OPENAI_API_KEY"  
-# DEFAULT_CITY = "Kumasi"
 MODEL = "gpt-4.1-nano"
 OUTPUT_DIR = "."
-MAX_TOKENS = 2000
+MAX_TOKENS = 2500
 
 
 cities = ['Mumbai', 'Chennai', 'Bangalore']
