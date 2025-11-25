@@ -23,62 +23,56 @@ MODEL = "gpt-4.1-nano"
 OUTPUT_DIR = "."
 MAX_TOKENS = 2000
 
-# response = client.chat.completions.create(
-#                 model=MODEL,
-#                 messages=[
-#                     {"role": "system", "content": "You are a 20+ years experienced SEO-friendly & user-friendly website content writer who must follow formatting and content instructions exactly."},
-#                     {"role": "user", "content": prompt}
-#                 ],
-#                 max_tokens=MAX_TOKENS,
-#                 temperature=0.2  # lower temperature for consistent SEO output
-            # )
 
+cities = ['Mumbai', 'Chennai', 'Bangalore']
+# city_name = "Mumbai"
 
-city_name = "Bangalore"
-country_name = "India"
-# prompt = build_prompt(city)
-filename_safe = city_name.lower().replace(" ", "_")
-output_path = os.path.join(OUTPUT_DIR, f"{filename_safe}_seo_page.txt")
+for city_name in cities:
+    country_name = "India"
+    # prompt = build_prompt(city)
+    filename_safe = city_name.lower().replace(" ", "_")
+    output_path = os.path.join(OUTPUT_DIR, f"{filename_safe}_seo_page.html")
 
-# Basic retry/backoff in case of transient failures
-max_retries = 1
-backoff = 2.0
+    # Basic retry/backoff in case of transient failures
+    max_retries = 1
+    backoff = 5.0
 
-prompt = prompt.format(city_name=city_name, country_name=country_name)
+    prompt = prompt.format(city_name=city_name, country_name=country_name)
+    # print(prompt)
 
-for attempt in range(1, max_retries + 1):
-    try:
-        print(f"[Attempt {attempt}] Calling model {MODEL} to generate content for {city_name}...")
-        response = client.chat.completions.create(
-            model=MODEL,
-            messages=[
-                {"role": "system", "content": "You are a 20+ years experienced SEO-friendly & user-friendly website content writer and a professional SEO copywriter who must follow formatting and content instructions exactly."},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=MAX_TOKENS,
-            temperature=0.2  # lower temperature for consistent output
-        )
+    for attempt in range(1, max_retries + 1):
+        try:
+            print(f"[Attempt {attempt}] Calling model {MODEL} to generate content for {city_name}...")
+            response = client.chat.completions.create(
+                model=MODEL,
+                messages=[
+                    {"role": "system", "content": "You are a 20+ years experienced SEO-friendly & user-friendly website content writer and a professional SEO copywriter who must follow formatting and content instructions exactly. Output the content strictly in html format."},
+                    {"role": "user", "content": prompt}
+                ],
+                max_tokens=MAX_TOKENS,
+                temperature=0.2  # lower temperature for consistent output
+            )
 
-        choices = response.choices or []  # Extract content
+            choices = response.choices or []  # Extract content
 
-        if not choices:
-            raise RuntimeError("API returned no choices; retrying.")
+            if not choices:
+                raise RuntimeError("API returned no choices; retrying.")
 
-        content = choices[0].message.content
-        # Basic validation: ensure we have at least 500 characters 
-        if not content or len(content) < 500:
-            print("Warning: generated content seems short; retrying once.")
-            raise RuntimeError("Generated content too short.")
+            content = choices[0].message.content
+            # Basic validation: ensure we have at least 500 characters 
+            if not content or len(content) < 500:
+                print("Warning: generated content seems short; retrying once.")
+                raise RuntimeError("Generated content too short.")
 
-        with open(output_path, "w", encoding="utf-8") as f:
-            f.write(content)
+            with open(output_path, "w", encoding="utf-8") as f:
+                f.write(content)
 
-        print(f"✅ Generated content saved to: {output_path}")
-        
+            print(f"✅ Generated content saved to: {output_path}")
+            
 
-    except Exception as e:
-        print(f"Error on attempt {attempt}: {e}")
-        if attempt == max_retries:
-            raise
-        else:
-            time.sleep(backoff * attempt)
+        except Exception as e:
+            print(f"Error on attempt {attempt}: {e}")
+            if attempt == max_retries:
+                raise
+            else:
+                time.sleep(backoff * attempt)
