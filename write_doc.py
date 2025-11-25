@@ -19,8 +19,8 @@ def clean_text(s):
     # normalize whitespace
     return re.sub(r'\s+', ' ', s).strip()
 
-
-def build_requests_from_html(html, starting_index=1):
+tab_id = 't.gggckew8apdd'
+def build_requests_from_html(html, starting_index=1, tab_id=tab_id):
     soup = BeautifulSoup(html, "html.parser")
     body = soup.find("body")
     if body is None:
@@ -37,7 +37,7 @@ def build_requests_from_html(html, starting_index=1):
             return (None, None)
         # ensure text uses normalized newlines
         text = text.replace('\r\n', '\n')
-        req = {"insertText": {"location": {"tabId": "t.gggckew8apdd", "index": current_index}, "text": text}}
+        req = {"insertText": {"location": {"tabId": tab_id, "index": current_index}, "text": text}}
         requests.append(req)
         start = current_index
         current_index += len(text)
@@ -53,7 +53,7 @@ def build_requests_from_html(html, starting_index=1):
         fields = ",".join(style_dict.keys())
         requests.append({
             "updateTextStyle": {
-                "range": {"startIndex": start, "endIndex": end, "tabId": "t.gggckew8apdd"},
+                "range": {"startIndex": start, "endIndex": end, "tabId": tab_id},
                 "textStyle": style_dict,
                 "fields": fields
             }
@@ -64,7 +64,7 @@ def build_requests_from_html(html, starting_index=1):
             return
         requests.append({
             "updateParagraphStyle": {
-                "range": {"startIndex": start, "endIndex": end, "tabId": "t.gggckew8apdd"},
+                "range": {"startIndex": start, "endIndex": end, "tabId": tab_id},
                 "paragraphStyle": {"namedStyleType": named_style},
                 "fields": "namedStyleType"
             }
@@ -80,7 +80,7 @@ def build_requests_from_html(html, starting_index=1):
 
         name = getattr(node, "name", "").lower()
 
-        if name in ("h1", "h2", "h3"):
+        if name in ("h1", "h2", "h3", "h4"):
             text = clean_text(node.get_text())
             if not text:
                 continue
@@ -97,6 +97,8 @@ def build_requests_from_html(html, starting_index=1):
                 add_paragraph_style(start, end, "HEADING_2")
             elif name == "h3":
                 add_paragraph_style(start, end, "HEADING_3")
+            elif name == "h4":
+                add_paragraph_style(start, end, "HEADING_4")
 
         elif name == "p":
             paragraph_start = current_index
@@ -149,7 +151,7 @@ def build_requests_from_html(html, starting_index=1):
                 # create bullets for the range
                 requests.append({
                     "createParagraphBullets": {
-                        "range": {"startIndex": first_item_index, "endIndex": last_item_index, "tabId": "t.gggckew8apdd"},
+                        "range": {"startIndex": first_item_index, "endIndex": last_item_index, "tabId": tab_id},
                         "bulletPreset": "BULLET_DISC_CIRCLE_SQUARE"
                     }
                 })
@@ -173,7 +175,7 @@ def build_requests_from_html(html, starting_index=1):
                 # create numbered bullets
                 requests.append({
                     "createParagraphBullets": {
-                        "range": {"startIndex": first_item_index, "endIndex": last_item_index, "tabId": "t.gggckew8apdd"},
+                        "range": {"startIndex": first_item_index, "endIndex": last_item_index, "tabId": tab_id},
                         "bulletPreset": "NUMBERED_DECIMAL_ALPHA_ROMAN"
                     }
                 })
