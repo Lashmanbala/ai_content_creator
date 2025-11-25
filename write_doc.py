@@ -37,7 +37,7 @@ def build_requests_from_html(html, starting_index=1):
             return (None, None)
         # ensure text uses normalized newlines
         text = text.replace('\r\n', '\n')
-        req = {"insertText": {"location": {"index": current_index}, "text": text}}
+        req = {"insertText": {"location": {"tabId": "t.gggckew8apdd", "index": current_index}, "text": text}}
         requests.append(req)
         start = current_index
         current_index += len(text)
@@ -53,7 +53,7 @@ def build_requests_from_html(html, starting_index=1):
         fields = ",".join(style_dict.keys())
         requests.append({
             "updateTextStyle": {
-                "range": {"startIndex": start, "endIndex": end},
+                "range": {"startIndex": start, "endIndex": end, "tabId": "t.gggckew8apdd"},
                 "textStyle": style_dict,
                 "fields": fields
             }
@@ -64,7 +64,7 @@ def build_requests_from_html(html, starting_index=1):
             return
         requests.append({
             "updateParagraphStyle": {
-                "range": {"startIndex": start, "endIndex": end},
+                "range": {"startIndex": start, "endIndex": end, "tabId": "t.gggckew8apdd"},
                 "paragraphStyle": {"namedStyleType": named_style},
                 "fields": "namedStyleType"
             }
@@ -149,7 +149,7 @@ def build_requests_from_html(html, starting_index=1):
                 # create bullets for the range
                 requests.append({
                     "createParagraphBullets": {
-                        "range": {"startIndex": first_item_index, "endIndex": last_item_index},
+                        "range": {"startIndex": first_item_index, "endIndex": last_item_index, "tabId": "t.gggckew8apdd"},
                         "bulletPreset": "BULLET_DISC_CIRCLE_SQUARE"
                     }
                 })
@@ -173,7 +173,7 @@ def build_requests_from_html(html, starting_index=1):
                 # create numbered bullets
                 requests.append({
                     "createParagraphBullets": {
-                        "range": {"startIndex": first_item_index, "endIndex": last_item_index},
+                        "range": {"startIndex": first_item_index, "endIndex": last_item_index, "tabId": "t.gggckew8apdd"},
                         "bulletPreset": "NUMBERED_DECIMAL_ALPHA_ROMAN"
                     }
                 })
@@ -205,8 +205,10 @@ def main():
     batch = {"requests": requests}
     res = docs_service.documents().batchUpdate(documentId=doc_id, body=batch).execute()
     print("Batch update executed.")
-    print("Response summary keys:", list(res.keys()))
+    # print("Response summary keys:", list(res.keys()))
     print("Open the doc in Google Drive to review formatting.")
+
+
 
 if __name__ == "__main__":
     main()
