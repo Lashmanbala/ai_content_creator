@@ -19,7 +19,7 @@ def clean_text(s):
     # normalize whitespace
     return re.sub(r'\s+', ' ', s).strip()
 
-tab_id = 't.gggckew8apdd'
+tab_id = 't.d5l3v6yhd16t'
 def build_requests_from_html(html, starting_index=1, tab_id=tab_id):
     soup = BeautifulSoup(html, "html.parser")
     body = soup.find("body")
@@ -131,6 +131,11 @@ def build_requests_from_html(html, starting_index=1, tab_id=tab_id):
                         insert_text_and_advance(plain)
             # end paragraph - add newline
             insert_text_and_advance("\n")
+                # End paragraph
+            _, paragraph_end = insert_text_and_advance("\n")
+
+            # 🔥 THIS IS THE FIX: Force Google Docs to remove heading formatting
+            add_paragraph_style(paragraph_start, paragraph_end, "NORMAL_TEXT")
 
         elif name == "ul":
             # for ul: insert each <li> as a new line, then call createParagraphBullets on that range
