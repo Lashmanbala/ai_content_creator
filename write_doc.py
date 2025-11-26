@@ -19,6 +19,7 @@ def clean_text(s):
     # normalize whitespace
     return re.sub(r'\s+', ' ', s).strip()
 
+
 tab_id = 't.d5l3v6yhd16t'
 def build_requests_from_html(html, starting_index=1, tab_id=tab_id):
     soup = BeautifulSoup(html, "html.parser")
@@ -70,6 +71,18 @@ def build_requests_from_html(html, starting_index=1, tab_id=tab_id):
             }
         })
 
+    def maybe_add_space():
+        # Insert a space only if the previous character is not a space or newline
+        nonlocal current_index, requests
+        if current_index > 1:
+            requests.append({
+                "insertText": {
+                    "location": {"tabId": tab_id, "index": current_index},
+                    "text": " "
+                }
+            })
+            current_index += 1
+
     # Walk direct children of body to keep structure order
     for node in body.children:
         if isinstance(node, str):
@@ -99,44 +112,88 @@ def build_requests_from_html(html, starting_index=1, tab_id=tab_id):
                 add_paragraph_style(start, end, "HEADING_3")
             elif name == "h4":
                 add_paragraph_style(start, end, "HEADING_4")
+        
+        # elif name == "p":
+        #     paragraph_start = current_index
+        #     # iterate over children to capture inline styles
+        #     for child in node.children:
+        #         if getattr(child, "name", None) == "strong":
+        #             t = clean_text(child.get_text())
+        #             # t = child.get_text()
+        #             if t:
+        #                 s, e = insert_text_and_advance(t)
+        #                 add_text_style(s, e, {"bold": True})
+        #         # handle <a>
+        #         elif getattr(child, "name", None) == "a":
+        #             t = clean_text(child.get_text())
+        #             href = child.get("href")
+        #             if t:
+        #                 s, e = insert_text_and_advance(t)
+        #                 if href:
+        #                     add_text_style(s, e, {"link": {"url": href}})
+                            
+        #         else:
+        #             # plain text node (including text inside other non-styled tags)
+        #             plain = ""
+        #             if isinstance(child, str):
+        #                 plain = child
+        #             else:
+        #                 plain = child.get_text()
+        #             plain = clean_text(plain)
+        #             if plain:
+        #                 insert_text_and_advance(plain)
+        #     # end paragraph - add newline
+        #     # insert_text_and_advance("\n")
+        #         # End paragraph
+        #     _ , paragraph_end = insert_text_and_advance("\n")
 
+        #     add_paragraph_style(paragraph_start, paragraph_end, "NORMAL_TEXT")
+            
         elif name == "p":
             paragraph_start = current_index
-            # iterate over children to capture inline styles
+
+            prev_was_text = False  # track continuity
+
             for child in node.children:
-                if getattr(child, "name", None) == "strong":
+                cname = getattr(child, "name", None)
+
+                if cname == "strong":
                     t = clean_text(child.get_text())
-                    # t = child.get_text()
                     if t:
+                        # Insert space when toggling from plain → strong
+                        if prev_was_text:
+                            maybe_add_space()
+
                         s, e = insert_text_and_advance(t)
                         add_text_style(s, e, {"bold": True})
-                # handle <a>
-                elif getattr(child, "name", None) == "a":
+                        prev_was_text = True
+
+                elif cname == "a":
                     t = clean_text(child.get_text())
                     href = child.get("href")
                     if t:
+                        if prev_was_text:
+                            maybe_add_space()
+
                         s, e = insert_text_and_advance(t)
                         if href:
                             add_text_style(s, e, {"link": {"url": href}})
-                            
+                        prev_was_text = True
+
                 else:
-                    # plain text node (including text inside other non-styled tags)
-                    plain = ""
-                    if isinstance(child, str):
-                        plain = child
-                    else:
-                        plain = child.get_text()
+                    plain = child if isinstance(child, str) else child.get_text()
                     plain = clean_text(plain)
                     if plain:
+                        if prev_was_text:
+                            maybe_add_space()
                         insert_text_and_advance(plain)
-            # end paragraph - add newline
-            insert_text_and_advance("\n")
-                # End paragraph
-            _, paragraph_end = insert_text_and_advance("\n")
+                        prev_was_text = True
 
-            # 🔥 THIS IS THE FIX: Force Google Docs to remove heading formatting
+            _ , paragraph_end = insert_text_and_advance("\n")
+
             add_paragraph_style(paragraph_start, paragraph_end, "NORMAL_TEXT")
 
+        
         elif name == "ul":
             # for ul: insert each <li> as a new line, then call createParagraphBullets on that range
             first_item_index = None
