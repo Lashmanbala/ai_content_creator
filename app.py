@@ -39,7 +39,7 @@ for city_name in cities:
             response = client.chat.completions.create(
                 model=MODEL,
                 messages=[
-                    {"role": "system", "content": "You are a 20+ years experienced SEO-friendly & user-friendly website content writer and a professional SEO copywriter who must follow formatting and content instructions exactly. Output the content strictly in html format."},
+                    {"role": "system", "content": "You are a 20+ years experienced SEO-friendly & user-friendly website content writer and a professional SEO copywriter who must follow formatting and content instructions exactly. Output the content strictly in html format. You are going to write content for multiple cities. Each content must be unique and the structure must be unique."},
                     {"role": "user", "content": final_prompt}
                 ],
                 max_tokens=MAX_TOKENS,
@@ -52,13 +52,16 @@ for city_name in cities:
                 raise RuntimeError("API returned no choices; retrying.")
 
             content = choices[0].message.content
-            # Basic validation: ensure we have at least 500 characters 
-            if not content or len(content) < 500:
+            # Basic validation: ensure we have at least 2000 characters 
+            if not content or len(content) < 2000:
                 print("Warning: generated content seems short; retrying once.")
                 raise RuntimeError("Generated content too short.")
 
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(content)
+
+            usage = response.usage or {}
+            print(f'Usage: {usage}')
 
             print(f"✅ Generated content saved to: {output_path}")
             
@@ -69,3 +72,30 @@ for city_name in cities:
                 raise
             else:
                 time.sleep(backoff * attempt)
+
+
+# {
+#     "id": "chatcmpl-abc123",
+#     "object": "chat.completion",
+#     "created": 1677858242,
+#     "model": "gpt-3.5-turbo",
+#     "usage": {
+#         "prompt_tokens": 13,
+#         "completion_tokens": 7,
+#         "total_tokens": 20
+#     },
+#     "choices": [
+#         {
+#             "message": {
+#                 "role": "assistant",
+#                 "content": "This is a test!"
+#             }
+#         }
+#     ]
+# }
+'''
+Usage:CompletionUsage(completion_tokens=2218, prompt_tokens=1019, total_tokens=3237, 
+  
+                    completion_tokens=2057, prompt_tokens=1019, total_tokens=3076, 
+                    completion_tokens=2276, prompt_tokens=1019, total_tokens=3295,
+                                                                  '''
