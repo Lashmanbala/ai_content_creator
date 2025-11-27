@@ -2,7 +2,7 @@ from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 from bs4 import BeautifulSoup
 import re
-from content import html, mdc
+from content import html2, mdc
 
 
 SERVICE_ACCOUNT_FILE = "doc-reader.json"
@@ -20,7 +20,7 @@ def clean_text(s):
     return re.sub(r'\s+', ' ', s).strip()
 
 
-tab_id = 't.d5l3v6yhd16t'
+tab_id = 't.8sh23tb4aixw'
 def build_requests_from_html(html, starting_index=1, tab_id=tab_id):
     soup = BeautifulSoup(html, "html.parser")
     body = soup.find("body")
@@ -182,6 +182,11 @@ def build_requests_from_html(html, starting_index=1, tab_id=tab_id):
                             s, e = insert_text_and_advance(t)
                             add_text_style(s, e, {"bold": True})
 
+                            # adding a space after the bold cahrecters
+                            requests.append({"insertText": {"location": {"tabId": tab_id, "index": current_index},
+                                                            "text": " "}})
+                            current_index += 1
+
                             prev_was_text = True
 
                     elif cname == "a":
@@ -246,12 +251,10 @@ def build_requests_from_html(html, starting_index=1, tab_id=tab_id):
 
                             s, e = insert_text_and_advance(t)
                             add_text_style(s, e, {"bold": True})
-                            requests.append({
-                                    "insertText": {
-                                        "location": {"tabId": tab_id, "index": current_index},
-                                        "text": " "
-                                    }
-                                })
+                            
+                            # adding a space after the bold cahrecters
+                            requests.append({"insertText": {"location": {"tabId": tab_id, "index": current_index},
+                                                            "text": " "}})
                             current_index += 1
 
                             prev_was_text = True
@@ -299,9 +302,10 @@ def build_requests_from_html(html, starting_index=1, tab_id=tab_id):
             requests.extend(pending_styles)
             pending_styles = []
 
-    if pending_styles:
+    if pending_styles:     # remaining styles also apended to the request list
         requests.extend(pending_styles)
         pending_styles = []
+
     return requests
 
 
@@ -313,7 +317,8 @@ def main():
     # print("Created document:", doc_id)
 
     # build requests
-    requests = build_requests_from_html(html)
+    
+    requests = build_requests_from_html(html2)
  
     if not requests:
         print("No requests generated.")
