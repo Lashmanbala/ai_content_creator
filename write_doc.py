@@ -28,6 +28,7 @@ def build_requests_from_html(html, starting_index=1, tab_id=tab_id):
         body = soup  # fallback
 
     requests = []
+    pending_styles = []
     # Simulating the document's character index while building the requests.
     current_index = starting_index
 
@@ -52,7 +53,7 @@ def build_requests_from_html(html, starting_index=1, tab_id=tab_id):
             return
         
         fields = ",".join(style_dict.keys())
-        requests.append({
+        pending_styles.append({
             "updateTextStyle": {
                 "range": {"startIndex": start, "endIndex": end, "tabId": tab_id},
                 "textStyle": style_dict,
@@ -113,41 +114,6 @@ def build_requests_from_html(html, starting_index=1, tab_id=tab_id):
             elif name == "h4":
                 add_paragraph_style(start, end, "HEADING_4")
         
-        # elif name == "p":
-        #     paragraph_start = current_index
-        #     # iterate over children to capture inline styles
-        #     for child in node.children:
-        #         if getattr(child, "name", None) == "strong":
-        #             t = clean_text(child.get_text())
-        #             # t = child.get_text()
-        #             if t:
-        #                 s, e = insert_text_and_advance(t)
-        #                 add_text_style(s, e, {"bold": True})
-        #         # handle <a>
-        #         elif getattr(child, "name", None) == "a":
-        #             t = clean_text(child.get_text())
-        #             href = child.get("href")
-        #             if t:
-        #                 s, e = insert_text_and_advance(t)
-        #                 if href:
-        #                     add_text_style(s, e, {"link": {"url": href}})
-                            
-        #         else:
-        #             # plain text node (including text inside other non-styled tags)
-        #             plain = ""
-        #             if isinstance(child, str):
-        #                 plain = child
-        #             else:
-        #                 plain = child.get_text()
-        #             plain = clean_text(plain)
-        #             if plain:
-        #                 insert_text_and_advance(plain)
-        #     # end paragraph - add newline
-        #     # insert_text_and_advance("\n")
-        #         # End paragraph
-        #     _ , paragraph_end = insert_text_and_advance("\n")
-
-        #     add_paragraph_style(paragraph_start, paragraph_end, "NORMAL_TEXT")
             
         elif name == "p":
             paragraph_start = current_index
@@ -193,24 +159,64 @@ def build_requests_from_html(html, starting_index=1, tab_id=tab_id):
 
             add_paragraph_style(paragraph_start, paragraph_end, "NORMAL_TEXT")
 
-        
+
         elif name == "ul":
-            # for ul: insert each <li> as a new line, then call createParagraphBullets on that range
             first_item_index = None
             last_item_index = None
-            li_count = 0
+
             for li in node.find_all("li", recursive=False):
-                li_text = clean_text(li.get_text())
-                if not li_text:
-                    continue
-                li_count += 1
-                s, e = insert_text_and_advance(li_text + "\n")
+                li_start = current_index
+
+                # Process children inside <li> just like <p> logic
+                for child in li.children:
+                    prev_was_text = False  # track continuity
+
+                    cname = getattr(child, "name", None)
+
+                    if cname == "strong":
+                        t = clean_text(child.get_text())
+                        if t:
+                            if prev_was_text:
+                                maybe_add_space()
+
+                            s, e = insert_text_and_advance(t)
+                            add_text_style(s, e, {"bold": True})
+
+                            prev_was_text = True
+
+                    elif cname == "a":
+                        t = clean_text(child.get_text())
+                        href = child.get("href")
+                        if t:
+                            if prev_was_text:
+                                maybe_add_space()
+
+                            s, e = insert_text_and_advance(t)
+                            if href:
+                                add_text_style(s, e, {"link": {"url": href}})
+
+                            prev_was_text = True
+
+                    else:
+                        # plain text
+                        plain = child if isinstance(child, str) else child.get_text()
+                        plain = clean_text(plain)
+                        if prev_was_text:
+                            maybe_add_space()
+                        s, e = insert_text_and_advance(plain)
+                        add_paragraph_style(s, e, "NORMAL_TEXT")
+                        prev_was_text = True
+
+                # End of LI → add newline
+                li_end = insert_text_and_advance("\n")[1]
+
+                # Track bullet range
                 if first_item_index is None:
-                    first_item_index = s
-                last_item_index = e
-            
-            if li_count > 0:
-                # create bullets for the range
+                    first_item_index = li_start
+                last_item_index = li_end
+
+            # Apply bullets to the whole UL
+            if first_item_index is not None:
                 requests.append({
                     "createParagraphBullets": {
                         "range": {"startIndex": first_item_index, "endIndex": last_item_index, "tabId": tab_id},
@@ -220,21 +226,69 @@ def build_requests_from_html(html, starting_index=1, tab_id=tab_id):
 
 
         elif name == "ol":
-            # similar to ul but we can use the same bullets and let Google handle numbering via named styles
             first_item_index = None
             last_item_index = None
-            li_count = 0
+
             for li in node.find_all("li", recursive=False):
-                li_text = clean_text(li.get_text())
-                if not li_text:
-                    continue
-                li_count += 1
-                s, e = insert_text_and_advance(li_text + "\n")
+                li_start = current_index
+
+                # Process children inside <li> just like <p> logic
+                for child in li.children:
+                    prev_was_text = False  # track continuity
+
+                    cname = getattr(child, "name", None)
+
+                    if cname == "strong":
+                        t = clean_text(child.get_text())
+                        if t:
+                            if prev_was_text:
+                                maybe_add_space()
+
+                            s, e = insert_text_and_advance(t)
+                            add_text_style(s, e, {"bold": True})
+                            requests.append({
+                                    "insertText": {
+                                        "location": {"tabId": tab_id, "index": current_index},
+                                        "text": " "
+                                    }
+                                })
+                            current_index += 1
+
+                            prev_was_text = True
+
+                    elif cname == "a":
+                        t = clean_text(child.get_text())
+                        href = child.get("href")
+                        if t:
+                            if prev_was_text:
+                                maybe_add_space()
+
+                            s, e = insert_text_and_advance(t)
+                            if href:
+                                add_text_style(s, e, {"link": {"url": href}})
+
+                            prev_was_text = True
+
+                    else:
+                        # plain text
+                        plain = child if isinstance(child, str) else child.get_text()
+                        plain = clean_text(plain)
+                        if prev_was_text:
+                            maybe_add_space()
+                        s, e = insert_text_and_advance(plain)
+                        add_paragraph_style(s, e, "NORMAL_TEXT")
+                        prev_was_text = True
+
+                # End of LI → add newline
+                li_end = insert_text_and_advance("\n")[1]
+
+                # Track bullet range
                 if first_item_index is None:
-                    first_item_index = s
-                last_item_index = e
-            if li_count > 0:
-                # create numbered bullets
+                    first_item_index = li_start
+                last_item_index = li_end
+
+            # Apply bullets to the whole UL
+            if first_item_index is not None:
                 requests.append({
                     "createParagraphBullets": {
                         "range": {"startIndex": first_item_index, "endIndex": last_item_index, "tabId": tab_id},
@@ -242,11 +296,8 @@ def build_requests_from_html(html, starting_index=1, tab_id=tab_id):
                     }
                 })
 
-        else:
-            # fallback: insert the text content and a newline
-            txt = clean_text(node.get_text() or "")
-            if txt:
-                insert_text_and_advance(txt + "\n")
+            requests.extend(pending_styles)
+            pending_styles = []
 
     return requests
 
@@ -260,7 +311,7 @@ def main():
 
     # build requests
     requests = build_requests_from_html(html)
-
+ 
     if not requests:
         print("No requests generated.")
         return
