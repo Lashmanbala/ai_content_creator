@@ -299,6 +299,9 @@ def build_requests_from_html(html, starting_index=1, tab_id=tab_id):
             requests.extend(pending_styles)
             pending_styles = []
 
+    if pending_styles:
+        requests.extend(pending_styles)
+        pending_styles = []
     return requests
 
 
