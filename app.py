@@ -1,6 +1,7 @@
 from openai import OpenAI
 from dotenv import load_dotenv
 from prompt import prompt
+from write_doc import auth_docs, build_requests_from_html
 import os
 import time
 
@@ -15,8 +16,29 @@ MODEL = "gpt-4.1-nano"
 OUTPUT_DIR = "."
 MAX_TOKENS = 2500
 
+docs_service = auth_docs()
+doc_id = '1J43gRLDYKC8q6EZfQGuOUbarbcDblaF2Jwr-zbpz44M'
 
-cities = ['Mumbai', 'Chennai', 'Bangalore']
+doc = docs_service.documents().get(documentId=doc_id, includeTabsContent=True).execute()
+
+tabs = doc.get("tabs", [])
+print("Tabs in document:", [tab["tabProperties"]["title"] for tab in tabs])
+
+if not tabs:
+    raise Exception("No tabs found in the document")
+tab_dict = {}
+for t in tabs:
+    tab_title = t["tabProperties"]["title"]
+    tab_id = t["tabProperties"]["tabId"]
+    
+    if not tab_title in tab_dict.keys():
+        tab_dict[tab_title] = tab_id
+
+    # print("Tab title:", t["tabProperties"]["title"], "ID:", t["tabProperties"]["tabId"])
+print(tab_dict)
+
+
+cities = [tab["tabProperties"]["title"] for tab in tabs]
 # city_name = "Mumbai"
 
 prompt_template = prompt
@@ -43,9 +65,9 @@ for city_name in cities:
                     {"role": "user", "content": final_prompt}
                 ],
                 max_tokens=MAX_TOKENS,
-                temperature=0.2  # lower temperature for consistent output
+                temperature=0.5  # lower temperature for consistent output
             )
-
+            
             choices = response.choices or []  # Extract content
 
             if not choices:
@@ -53,18 +75,36 @@ for city_name in cities:
 
             content = choices[0].message.content
             # Basic validation: ensure we have at least 2000 characters 
-            if not content or len(content) < 2000:
+            if not content : # or len(content) < 2000:
                 print("Warning: generated content seems short; retrying once.")
                 raise RuntimeError("Generated content too short.")
+            else:
+                print('----Content generated----')
+                usage = response.usage or {}
+                print(f'Usage: {usage}')
+            
 
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(content)
+                print('++++written to file++++')
 
-            usage = response.usage or {}
-            print(f'Usage: {usage}')
+            tab_id = tab_dict[city_name]
+            requests = build_requests_from_html(content, tab_id=tab_id)
+ 
+            if not requests:
+                print("No requests generated.")
+                # return
 
-            print(f"✅ Generated content saved to: {output_path}")
-            
+            # Send batchUpdate
+            batch = {"requests": requests}
+            docs_service.documents().batchUpdate(documentId=doc_id, body=batch).execute()
+
+            # print("Batch update executed.")
+            print(f"Open the doc tab {city_name} with id : {tab_id} in Google Drive to review formatting.")
+
+            # time.sleep(10)
+
+            # print(f"✅ Generated content saved to: {output_path}")
 
         except Exception as e:
             print(f"Error on attempt {attempt}: {e}")
@@ -74,28 +114,3 @@ for city_name in cities:
                 time.sleep(backoff * attempt)
 
 
-# {
-#     "id": "chatcmpl-abc123",
-#     "object": "chat.completion",
-#     "created": 1677858242,
-#     "model": "gpt-3.5-turbo",
-#     "usage": {
-#         "prompt_tokens": 13,
-#         "completion_tokens": 7,
-#         "total_tokens": 20
-#     },
-#     "choices": [
-#         {
-#             "message": {
-#                 "role": "assistant",
-#                 "content": "This is a test!"
-#             }
-#         }
-#     ]
-# }
-'''
-Usage:CompletionUsage(completion_tokens=2218, prompt_tokens=1019, total_tokens=3237, 
-  
-                    completion_tokens=2057, prompt_tokens=1019, total_tokens=3076, 
-                    completion_tokens=2276, prompt_tokens=1019, total_tokens=3295,
-                                                                  '''
