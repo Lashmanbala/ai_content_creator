@@ -4,6 +4,7 @@ from prompt import prompt
 from write_doc import auth_docs, build_requests_from_html
 import os
 import time
+from post import post_to_wp
 
 # standard environment variable name for OpenAI API key -- OPENAI_API_KEY
 
@@ -15,7 +16,22 @@ API_KEY_ENV_VAR = "OPENAI_API_KEY"
 MODEL = "gpt-4.1-nano"
 OUTPUT_DIR = "."
 MAX_TOKENS = 2500
+# max_completion_tokens = 2500
 
+USERNAME = os.getenv("WP_USERNAME")
+APP_PASSWORD = os.getenv("WP_APP_PASSWORD")
+WP_URL = os.getenv("WP_URL")
+featured_img_url = os.getenv("FEATURED_IMAGE_URL")
+social_image = os.getenv("SOCIAL_IMAGE_URL")
+country_name = os.getenv("COUNTRY_NAME")
+category_name = os.getenv("CATEGORY_NAME")
+page_title = os.getenv("page_title_format")
+key_phrase = os.getenv("key_phrase_format")
+description = os.getenv("description_format")
+brand_name = os.getenv("BRAND_NAME")
+print(WP_URL)
+
+'''
 docs_service = auth_docs()
 doc_id = '1J43gRLDYKC8q6EZfQGuOUbarbcDblaF2Jwr-zbpz44M'
 
@@ -38,16 +54,20 @@ for t in tabs:
 print(tab_dict)
 
 
-cities = [tab["tabProperties"]["title"] for tab in tabs]
+cities = [tab["tabProperties"]["title"] for tab in tabs] '''
 # city_name = "Mumbai"
+
+cities = ["Delhi", "Bangalore"]
 
 prompt_template = prompt
 
 for city_name in cities:
+    s_time = time.time()
+    print(f"\n\n=== Generating content for city: {city_name} ===\n")
     country_name = "India"
     # prompt = build_prompt(city)
-    filename_safe = city_name.lower().replace(" ", "_")
-    output_path = os.path.join(OUTPUT_DIR, f"{filename_safe}_seo_page.html")
+    # filename_safe = city_name.lower().replace(" ", "_")
+    # output_path = os.path.join(OUTPUT_DIR, f"{filename_safe}_seo_page2.txt")
 
     # Basic retry/backoff in case of transient failures
     max_retries = 1
@@ -61,10 +81,11 @@ for city_name in cities:
             response = client.chat.completions.create(
                 model=MODEL,
                 messages=[
-                    {"role": "system", "content": "You are a 20+ years experienced SEO-friendly & user-friendly website content writer and a professional SEO copywriter who must follow formatting and content instructions exactly. Output the content strictly in html format. You are going to write content for multiple cities. Each content must be unique and the structure must be unique."},
+                    {"role": "system", "content": "You are a 20+ years experienced SEO-friendly & user-friendly website content writer and a professional SEO copywriter who must follow formatting and content instructions exactly. Output the content strictly in html format. You are going to write content for multiple cities. Each content must be unique and the structure must be unique. "},
                     {"role": "user", "content": final_prompt}
                 ],
                 max_tokens=MAX_TOKENS,
+                # max_completion_tokens=MAX_TOKENS
                 temperature=0.5  # lower temperature for consistent output
             )
             
@@ -74,37 +95,44 @@ for city_name in cities:
                 raise RuntimeError("API returned no choices; retrying.")
 
             content = choices[0].message.content
-            # Basic validation: ensure we have at least 2000 characters 
-            if not content : # or len(content) < 2000:
+            # Basic validation: ensure we have at least 5000 characters 
+            if not content  or len(content) < 5000:
                 print("Warning: generated content seems short; retrying once.")
                 raise RuntimeError("Generated content too short.")
             else:
                 print('----Content generated----')
+                e_time = time.time()
+                print(e_time)
+                print(e_time - s_time)
                 usage = response.usage or {}
                 print(f'Usage: {usage}')
             
-
-            with open(output_path, "w", encoding="utf-8") as f:
-                f.write(content)
-                print('++++written to file++++')
-
-            tab_id = tab_dict[city_name]
-            requests = build_requests_from_html(content, tab_id=tab_id)
+            # with open(output_path, "w", encoding="utf-8") as f:
+            #     f.write(content)
+            #     print('++++written to file++++')
+            
+            # tab_id = tab_dict[city_name]
+            # requests = build_requests_from_html(content, tab_id=tab_id)
  
-            if not requests:
-                print("No requests generated.")
+            # if not requests:
+            #     print("No requests generated.")
                 # return
 
             # Send batchUpdate
-            batch = {"requests": requests}
-            docs_service.documents().batchUpdate(documentId=doc_id, body=batch).execute()
+            # batch = {"requests": requests}
+            # docs_service.documents().batchUpdate(documentId=doc_id, body=batch).execute()
 
             # print("Batch update executed.")
-            print(f"Open the doc tab {city_name} with id : {tab_id} in Google Drive to review formatting.")
-
+            # print(f"Open the doc tab {city_name} with id : {tab_id} in Google Drive to review formatting.")
             # time.sleep(10)
 
             # print(f"✅ Generated content saved to: {output_path}")
+
+            response = post_to_wp(content, featured_img_url, page_title, brand_name, key_phrase, description, social_image, WP_URL, USERNAME, APP_PASSWORD)
+            # print(f"✅ Generated content posted to WordPress for city: {city_name}")
+            if response.status_code == 201:
+                page_url = response.json().get("link", "")
+                print(f"✅ Created page for '{city_name}': {page_url}")
 
         except Exception as e:
             print(f"Error on attempt {attempt}: {e}")
